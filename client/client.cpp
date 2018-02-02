@@ -9,11 +9,17 @@
 //
 
 #include "client.hpp"
+#include "../Salsa20/Salsa20.h"
 
 using boost::asio::ip::tcp;
 
 namespace http {
 namespace client {
+
+client::client(int id, const std::string& key): m_id(id) {
+    for (size_t i = 0; i < key.length() && i < sizeof(m_key); ++i)
+        m_key[i] = (std::uint8_t)key[i];
+};
 
 void client::get(
         const std::string &address, const std::string &port,
@@ -35,7 +41,7 @@ void client::get(
     // allow us to treat all data up until the EOF as the content.
     boost::asio::streambuf request;
     std::ostream request_stream(&request);
-    request_stream << "GET " << path << " HTTP/1.0\r\n";
+    request_stream << "GET " << path << "?id=" << m_id << " HTTP/1.0\r\n";
     request_stream << "Host: " << address << "\r\n";
     request_stream << "Accept: */*\r\n";
     request_stream << "Connection: close\r\n\r\n";
@@ -71,21 +77,30 @@ void client::get(
 
     // Process the response headers.
     std::string header;
-    while (std::getline(response_stream, header) && header != "\r")
+    while (std::getline(response_stream, header) && header != "\r") {
         result << header << "\n";
-    result << "\n";
+    }
 
     // Write whatever content we already have to output.
+    std::stringstream sbuffer;
     if (response.size() > 0)
-        result << &response;
+        sbuffer << &response;
 
     // Read until EOF, writing data to output as we go.
     boost::system::error_code error;
-    while (boost::asio::read(socket, response,
-                             boost::asio::transfer_at_least(1), error))
-        result << &response;
+    while (boost::asio::read(socket, response, boost::asio::transfer_at_least(1), error))
+        sbuffer << &response;
+    // Decode content
+    uint8_t buffer[Salsa20::CHUNK_SIZE];
+    std::uint8_t nonce[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g' , 'h'};
+    while (sbuffer.read(reinterpret_cast<char *>(buffer), Salsa20::CHUNK_SIZE * sizeof(uint8_t)).gcount() > 0) {
+        Salsa20::crypt16(m_key, nonce, buffer);
+        result.write(reinterpret_cast<char *>(buffer), sbuffer.gcount());
+    }
+
     if (error != boost::asio::error::eof)
         throw boost::system::system_error(error);
+    //decode result
 }
 
 }

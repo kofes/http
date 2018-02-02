@@ -13,10 +13,14 @@ class client {
 public:
     client(const client&) = delete;
     client& operator=(const client&) = delete;
-    client() = default;
+    client() = delete;
+    client(int id, const std::string& key);
     void get(
             const std::string& address, const std::string& port,
             const std::string& path, std::stringstream& response);
+private:
+    int m_id;
+    std::uint8_t m_key[16];
 };
 }
 }
