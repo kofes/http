@@ -11,6 +11,8 @@ file(GLOB BOOST_ASIO_HTTP
         "server/*.cpp" "server/*.hpp"
         "client/*.cpp" "client/*.hpp")
 
-add_executable(http ${BOOST_ASIO_HTTP} args_serializer.h main.cpp)
+set(SALSA_20 Salsa20/Salsa20.h Salsa20/Salsa20.cpp)
+
+add_executable(http ${BOOST_ASIO_HTTP} ${SALSA_20} args_serializer.h main.cpp)
 
 target_link_libraries(http ${Boost_SYSTEM_LIBRARY})
