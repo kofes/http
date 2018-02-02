@@ -217,7 +217,6 @@ bool request_handler::url_decode(
         do {
             std::string key;
             std::string value;
-            bool err_flag;
 
             //read key
             err_flag = read_str_before(in, ind, key, {'='}, {'&', '#', '\0', '?', '/'});
@@ -242,7 +241,7 @@ bool request_handler::url_decode(
     if (in[ind] == '#') {
         out += in[ind++];
         std::string tmp;
-        bool err_flag = decode_hex(in, tmp);
+        err_flag = decode_hex(in, tmp);
         if (err_flag) return false;
         out += tmp;
     }
