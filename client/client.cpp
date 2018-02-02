@@ -42,8 +42,39 @@ void client::get(
     boost::asio::streambuf request;
     std::ostream request_stream(&request);
     request_stream << "GET " << path << "?id=" << m_id << " HTTP/1.0\r\n";
-    request_stream << "Host: " << address << "\r\n";
-    request_stream << "Accept: */*\r\n";
+
+    // Encrypt host address
+    std::string address_ = address;
+    for (size_t i = 0; i < address_.length() / Salsa20::CHUNK_SIZE; ++i) {
+        char c_buffer[Salsa20::CHUNK_SIZE] = {0};
+        for (size_t k = 0; k < Salsa20::CHUNK_SIZE; ++k)
+            c_buffer[k] = address_[i*Salsa20::CHUNK_SIZE + k];
+        std::uint8_t nonce[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g' , 'h'};
+        Salsa20::crypt16(
+                m_key,
+                nonce,
+                reinterpret_cast<std::uint8_t *>(c_buffer)
+        );
+        for (size_t k = 0; k < Salsa20::CHUNK_SIZE; ++k)
+            address_[i*Salsa20::CHUNK_SIZE + k] = c_buffer[k];
+    }
+    if (address_.length() % Salsa20::CHUNK_SIZE) {
+        char c_buffer[Salsa20::CHUNK_SIZE] = {0};
+        for (size_t k = 0; k < address_.length()  % Salsa20::CHUNK_SIZE; ++k)
+            c_buffer[k] = address_[(address_.length() / Salsa20::CHUNK_SIZE) *
+                                     Salsa20::CHUNK_SIZE + k];
+        std::uint8_t nonce[8] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+        Salsa20::crypt16(
+                m_key,
+                nonce,
+                reinterpret_cast<std::uint8_t *>(c_buffer)
+        );
+        for (size_t k = 0; k < address_.length() % Salsa20::CHUNK_SIZE; ++k)
+            address_[(address_.length() / Salsa20::CHUNK_SIZE) *
+                                 Salsa20::CHUNK_SIZE + k] = c_buffer[k];
+    }
+    request_stream << "Host: " << address_ << "\r\n";
+
     request_stream << "Connection: close\r\n\r\n";
 
     // Send the request.
